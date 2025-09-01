@@ -1,0 +1,40 @@
+{
+  "name": "collaborative-docs",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch index.ts",
+    "lint": "eslint .",
+    "docker": "docker compose up -d",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "studio": "yarn drizzle-kit studio",
+    "db:repair": "yarn drizzle-kit generate && yarn drizzle-kit migrate && yarn drizzle-kit push && yarn drizzle-kit pull && yarn drizzle-kit check && yarn drizzle-kit up && yarn drizzle-kit studio"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "drizzle-orm": "^0.44.5",
+    "drizzle-orm-pg": "^0.16.3",
+    "express": "^4.18.2",
+    "ioredis": "^5.7.0",
+    "pg": "^8.16.3",
+    "postgres": "^3.4.7",
+    "socket.io": "^4.7.5",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17",
+    "@types/pg": "^8.15.5",
+    "@types/socket.io-client": "^3.0.0",
+    "@types/uuid": "^9.0.8",
+    "drizzle-kit": "^0.31.4",
+    "eslint": "^9.9.1",
+    "globals": "^15.9.0",
+    "nodemon": "^3.0.3",
+    "tsx": "^4.20.5",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^8.3.0"
+  }
+}
