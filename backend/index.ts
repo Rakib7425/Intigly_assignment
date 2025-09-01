@@ -9,10 +9,8 @@ import authRoutes from "./src/routes/auth.routes";
 import docRoutes from "./src/routes/document.routes";
 import chatRoutes from "./src/routes/chat.routes";
 
-// Socket handler
 import { socketHandler } from "./src/socket/socketHandler.js";
 
-// DB / Redis managers
 import { DatabaseManager } from "./src/db/databaseManager.js";
 import { RedisManager } from "./src/db/redis.ts";
 
@@ -27,13 +25,12 @@ async function startServer() {
 
     console.log("✅ Database and Redis connected");
 
-    // Express setup
     const app = express();
     const server = createServer(app);
 
     const io = new Server(server, {
       cors: {
-        origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+        origin: "*",
         methods: ["GET", "POST"],
       },
     });
@@ -54,8 +51,7 @@ async function startServer() {
     app.use("/api/documents", docRoutes);
     app.use("/api/chat", chatRoutes);
 
-    // Socket handlers (inject DB + Redis into sockets)
-    socketHandler(io, dbManager, redisManager);
+    socketHandler(io);
 
     // Start server
     const PORT = Number(process.env.PORT || 3001);

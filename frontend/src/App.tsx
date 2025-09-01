@@ -8,6 +8,24 @@ function App() {
   const [socketManager, setSocketManager] = useState<SocketManager | null>(
     null
   );
+  useEffect(() => {
+    if (user) {
+      const sm = new SocketManager();
+      sm.connect(user)
+        .then(() => {
+          setSocketManager(sm);
+          console.log("Socket connected successfully");
+        })
+        .catch((error) => {
+          console.error("Failed to connect socket:", error);
+          setUser(null); // Reset auth on connection failure
+        });
+
+      return () => {
+        sm.disconnect();
+      };
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user) {

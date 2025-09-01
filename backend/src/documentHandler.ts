@@ -37,12 +37,14 @@ export class DocumentHandler {
       .select({
         id: "documents.id",
         title: "documents.title",
+        content: "documents.content",
         createdBy: "documents.created_by",
         createdAt: "documents.created_at",
         updatedAt: "documents.updated_at",
       })
       .from("documents" as any)
       .orderBy("documents.updated_at", "desc");
+
     // add active count from redis
     for (const r of rows) {
       const n = await this.redis.scard(`doc_users:${r.id}`);

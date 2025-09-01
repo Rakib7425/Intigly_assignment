@@ -23,9 +23,20 @@ export class DatabaseManager {
     console.log("✅ Postgres connected");
   }
 
-  // Upsert user by username
+  async createUser(username: string): Promise<any> {
+    try {
+      const result = await this.db
+        .insert(users)
+        .values({ username })
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating user:", error);
+      throw error;
+    }
+  }
+
   async ensureUser(username: string) {
-    // Insert if not exists
     await this.db
       .insert(users)
       .values({ username })

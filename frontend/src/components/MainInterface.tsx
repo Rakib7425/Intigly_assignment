@@ -20,7 +20,25 @@ export function MainInterface({
   const [activeUsers, setActiveUsers] = useState<string[]>([]);
 
   useEffect(() => {
-    const onAuth = () => socketManager.emit("getDocuments");
+    if (!socketManager) return;
+
+    const onError = (error: any) => {
+      console.error("Socket error:", error);
+    };
+
+    socketManager.on("error", onError);
+    socketManager.on("auth:error", onError);
+
+    return () => {
+      socketManager.off("error", onError);
+      socketManager.off("auth:error", onError);
+    };
+  }, [socketManager]);
+
+  useEffect(() => {
+    const onAuth = () => {
+      console.log("first");
+    };
     const onDocs = (docs: any[]) => setDocuments(docs);
     const onDocCreated = (doc: any) => setDocuments((prev) => [doc, ...prev]);
     const onActiveUsers = (users: string[]) => setActiveUsers(users);

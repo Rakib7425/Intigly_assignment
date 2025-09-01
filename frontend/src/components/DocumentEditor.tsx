@@ -1,225 +1,491 @@
-import React, { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Send, Users } from "lucide-react";
-import { SocketManager } from "../services/SocketManager";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { SocketManager, Document, ChatMessage, CursorPosition } from "./types";
 
 interface DocumentEditorProps {
-  document: any;
-  username: string;
   socketManager: SocketManager;
-  onClose: () => void;
+  document: Document;
+  currentUser: string;
+  onBack: () => void;
 }
 
-export function DocumentEditor({
-  document,
-  username,
+export const DocumentEditor: React.FC<DocumentEditorProps> = ({
   socketManager,
-  onClose,
-}: DocumentEditorProps) {
-  const [content, setContent] = useState(document.document.content);
-  const [messages, setMessages] = useState(document.messages || []);
+  document,
+  currentUser,
+  onBack,
+}) => {
+  const [content, setContent] = useState(document.content || "");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [presentUsers, setPresentUsers] = useState<string[]>(
-    document.presentUsers || []
-  );
-  const [cursors, setCursors] = useState<any>({});
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [activeUsers, setActiveUsers] = useState<string[]>([]);
+  const [cursors, setCursors] = useState<Record<string, CursorPosition>>({});
+  const [isTyping, setIsTyping] = useState<Record<string, boolean>>({});
+  const [chatTyping, setChatTyping] = useState<Record<string, boolean>>({});
+  const [showChat, setShowChat] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState({ connected: true });
+
+  const editorRef = useRef<HTMLTextAreaElement>(null);
   const chatRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const chatTypingTimeoutRef = useRef<NodeJS.Timeout>();
+  const contentRef = useRef(content);
+  const versionRef = useRef(document.version);
+
+  // Update refs when content changes
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
 
   useEffect(() => {
-    // Set up document-specific socket listeners
-    socketManager.on("documentUpdate", (data) => {
-      if (data.author !== username) {
-        setContent(data.content);
+    versionRef.current = document.version;
+  }, [document.version]);
+
+  // Socket event handlers
+  useEffect(() => {
+    const handleDocumentUpdate = ({
+      content: newContent,
+      version,
+      author,
+    }: any) => {
+      if (author !== currentUser) {
+        setContent(newContent);
+        versionRef.current = version;
       }
-    });
+    };
 
-    socketManager.on("newMessage", (message) => {
+    const handleChatMessage = (message: ChatMessage) => {
       setMessages((prev) => [...prev, message]);
-    });
+      // Scroll to bottom of chat
+      setTimeout(() => {
+        if (chatRef.current) {
+          chatRef.current.scrollTop = chatRef.current.scrollHeight;
+        }
+      }, 100);
+    };
 
-    socketManager.on("userJoined", (data) => {
-      setPresentUsers(data.presentUsers);
-    });
+    const handlePresenceUpdate = ({ users }: { users: string[] }) => {
+      setActiveUsers(users);
+    };
 
-    socketManager.on("userLeft", (data) => {
-      setPresentUsers(data.presentUsers);
-    });
+    const handleCursorsUpdate = (
+      newCursors: Record<string, CursorPosition>
+    ) => {
+      // Remove current user's cursor from display
+      const { [currentUser]: _, ...otherCursors } = newCursors;
+      setCursors(otherCursors);
+    };
 
-    socketManager.on("cursorsUpdate", (cursorData) => {
-      setCursors(cursorData);
-    });
+    const handleTypingStart = ({
+      username,
+      type,
+    }: {
+      username: string;
+      type: string;
+    }) => {
+      if (username !== currentUser) {
+        if (type === "chat") {
+          setChatTyping((prev) => ({ ...prev, [username]: true }));
+          setTimeout(() => {
+            setChatTyping((prev) => ({ ...prev, [username]: false }));
+          }, 3000);
+        } else {
+          setIsTyping((prev) => ({ ...prev, [username]: true }));
+          setTimeout(() => {
+            setIsTyping((prev) => ({ ...prev, [username]: false }));
+          }, 2000);
+        }
+      }
+    };
+
+    const handleTypingStop = ({
+      username,
+      type,
+    }: {
+      username: string;
+      type: string;
+    }) => {
+      if (username !== currentUser) {
+        if (type === "chat") {
+          setChatTyping((prev) => ({ ...prev, [username]: false }));
+        } else {
+          setIsTyping((prev) => ({ ...prev, [username]: false }));
+        }
+      }
+    };
+
+    const handleConnectionStatus = (status: any) => {
+      setConnectionStatus(status);
+    };
+
+    const handleConflict = ({ message }: { message: string }) => {
+      alert(
+        `Conflict detected: ${message}. Please refresh to get the latest version.`
+      );
+    };
+
+    const handleDocumentSynced = ({
+      doc,
+      users,
+      cursors: syncedCursors,
+    }: any) => {
+      setContent(doc.content);
+      versionRef.current = doc.version;
+      setActiveUsers(users);
+      const { [currentUser]: _, ...otherCursors } = syncedCursors;
+      setCursors(otherCursors);
+    };
+
+    // Subscribe to events
+    socketManager.on("documentUpdate", handleDocumentUpdate);
+    socketManager.on("chat:new", handleChatMessage);
+    socketManager.on("presence:update", handlePresenceUpdate);
+    socketManager.on("cursorsUpdate", handleCursorsUpdate);
+    socketManager.on("typing:start", handleTypingStart);
+    socketManager.on("typing:stop", handleTypingStop);
+    socketManager.on("connectionStatus", handleConnectionStatus);
+    socketManager.on("conflict", handleConflict);
+    socketManager.on("documentSynced", handleDocumentSynced);
+
+    // Set current document for reconnection
+    socketManager.setCurrentDocument(document.id.toString());
 
     return () => {
-      socketManager.removeAllListeners();
+      socketManager.off("documentUpdate", handleDocumentUpdate);
+      socketManager.off("chat:new", handleChatMessage);
+      socketManager.off("presence:update", handlePresenceUpdate);
+      socketManager.off("cursorsUpdate", handleCursorsUpdate);
+      socketManager.off("typing:start", handleTypingStart);
+      socketManager.off("typing:stop", handleTypingStop);
+      socketManager.off("connectionStatus", handleConnectionStatus);
+      socketManager.off("conflict", handleConflict);
+      socketManager.off("documentSynced", handleDocumentSynced);
+
+      // Leave document when component unmounts
+      socketManager.emit("leaveDocument", { documentId: document.id });
+      socketManager.setCurrentDocument(null);
     };
-  }, [socketManager, username]);
+  }, [socketManager, document.id, currentUser]);
 
+  // Load initial data
   useEffect(() => {
-    // Auto-scroll chat to bottom
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }
-  }, [messages]);
+    const handleDocumentJoined = ({
+      doc,
+      messages: initialMessages,
+      users,
+      cursors: initialCursors,
+    }: any) => {
+      setContent(doc.content);
+      setMessages(initialMessages);
+      setActiveUsers(users);
+      versionRef.current = doc.version;
 
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value;
-    const cursorPosition = e.target.selectionStart;
+      // Remove current user's cursor
+      const { [currentUser]: _, ...otherCursors } = initialCursors;
+      setCursors(otherCursors);
+    };
 
-    setContent(newContent);
+    socketManager.on("documentJoined", handleDocumentJoined);
+    socketManager.emit("joinDocument", { documentId: document.id });
 
-    socketManager.emit("documentEdit", {
-      documentId: document.document.id,
-      content: newContent,
-      cursorPosition,
-    });
-  };
+    return () => {
+      socketManager.off("documentJoined", handleDocumentJoined);
+    };
+  }, [socketManager, document.id, currentUser]);
 
-  const handleCursorMove = () => {
-    if (textareaRef.current) {
-      const cursorPosition = textareaRef.current.selectionStart;
-      socketManager.emit("documentEdit", {
-        documentId: document.document.id,
-        content,
-        cursorPosition,
+  // Handle content changes
+  const handleContentChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const newContent = e.target.value;
+      const textarea = e.target;
+
+      setContent(newContent);
+
+      // Get cursor position
+      const cursor: CursorPosition = {
+        line:
+          textarea.value.substr(0, textarea.selectionStart).split("\n").length -
+          1,
+        column:
+          textarea.selectionStart -
+          textarea.value.lastIndexOf("\n", textarea.selectionStart - 1) -
+          1,
+      };
+
+      // Emit typing indicator
+      socketManager.emit("typing:start", {
+        documentId: document.id,
+        type: "editor",
       });
-    }
-  };
 
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      typingTimeoutRef.current = setTimeout(() => {
+        socketManager.emit("typing:stop", {
+          documentId: document.id,
+          type: "editor",
+        });
+      }, 1000);
+
+      // Debounce document updates
+      const timeoutId = setTimeout(() => {
+        socketManager.emit("documentEdit", {
+          documentId: document.id,
+          content: newContent,
+          cursor,
+          version: versionRef.current,
+        });
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    },
+    [socketManager, document.id]
+  );
+
+  // Handle cursor movement without content change
+  const handleCursorMove = useCallback(
+    (
+      e:
+        | React.MouseEvent<HTMLTextAreaElement>
+        | React.KeyboardEvent<HTMLTextAreaElement>
+    ) => {
+      const textarea = e.currentTarget;
+
+      const cursor: CursorPosition = {
+        line:
+          textarea.value.substr(0, textarea.selectionStart).split("\n").length -
+          1,
+        column:
+          textarea.selectionStart -
+          textarea.value.lastIndexOf("\n", textarea.selectionStart - 1) -
+          1,
+      };
+
+      // Add selection if there is one
+      if (textarea.selectionStart !== textarea.selectionEnd) {
+        const selectionEnd = textarea.selectionEnd;
+        cursor.selection = {
+          start: cursor,
+          end: {
+            line: textarea.value.substr(0, selectionEnd).split("\n").length - 1,
+            column:
+              selectionEnd -
+              textarea.value.lastIndexOf("\n", selectionEnd - 1) -
+              1,
+          },
+        };
+      }
+
+      socketManager.emit("cursorMove", { documentId: document.id, cursor });
+    },
+    [socketManager, document.id]
+  );
+
+  // Handle chat message sending
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (newMessage.trim()) {
       socketManager.emit("sendMessage", {
-        documentId: document.document.id,
+        documentId: document.id,
         message: newMessage.trim(),
       });
       setNewMessage("");
     }
   };
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
+  // Handle chat typing
+  const handleChatTyping = useCallback(() => {
+    socketManager.emit("typing:start", {
+      documentId: document.id,
+      type: "chat",
     });
+
+    if (chatTypingTimeoutRef.current) {
+      clearTimeout(chatTypingTimeoutRef.current);
+    }
+
+    chatTypingTimeoutRef.current = setTimeout(() => {
+      socketManager.emit("typing:stop", {
+        documentId: document.id,
+        type: "chat",
+      });
+    }, 1000);
+  }, [socketManager, document.id]);
+
+  // Render cursor overlays (simplified version)
+  const renderCursors = () => {
+    return Object.entries(cursors).map(([username, cursor]) => (
+      <div
+        key={username}
+        className="absolute bg-blue-500 opacity-50 pointer-events-none"
+        style={{
+          top: `${cursor.line * 20}px`, // Approximate line height
+          left: `${cursor.column * 8}px`, // Approximate character width
+          width: "2px",
+          height: "20px",
+        }}
+      >
+        <span className="absolute -top-6 left-0 bg-blue-500 text-white px-1 py-0.5 text-xs rounded">
+          {username}
+        </span>
+      </div>
+    ));
+  };
+
+  const getTypingUsers = () => {
+    return Object.entries(isTyping)
+      .filter(([_, typing]) => typing)
+      .map(([username]) => username);
+  };
+
+  const getChatTypingUsers = () => {
+    return Object.entries(chatTyping)
+      .filter(([_, typing]) => typing)
+      .map(([username]) => username);
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="flex h-screen bg-gray-100">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={onClose}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </button>
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                {document.document.title}
-              </h1>
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <Users className="h-4 w-4" />
-                {presentUsers.length} user{presentUsers.length !== 1 ? "s" : ""}{" "}
-                editing
-                {presentUsers.length > 0 && (
-                  <span className="ml-2">
-                    {presentUsers.slice(0, 3).join(", ")}
-                    {presentUsers.length > 3 &&
-                      ` +${presentUsers.length - 3} more`}
-                  </span>
-                )}
-              </div>
+      <div className="absolute top-0 left-0 right-0 bg-white border-b px-4 py-3 flex items-center justify-between z-10">
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={onBack}
+            className="text-blue-600 hover:text-blue-800"
+          >
+            ← Back to Documents
+          </button>
+          <h1 className="text-xl font-semibold">{document.title}</h1>
+          {!connectionStatus.connected && (
+            <span className="text-red-500 text-sm">
+              {connectionStatus.reconnectFailed
+                ? "Connection failed"
+                : "Reconnecting..."}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center space-x-4">
+          {/* Active users */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">Active users:</span>
+            <div className="flex space-x-1">
+              {activeUsers.map((user) => (
+                <span
+                  key={user}
+                  className={`px-2 py-1 text-xs rounded-full ${
+                    user === currentUser
+                      ? "bg-green-200 text-green-800"
+                      : "bg-blue-200 text-blue-800"
+                  }`}
+                >
+                  {user} {user === currentUser && "(you)"}
+                </span>
+              ))}
             </div>
           </div>
+
+          <button
+            onClick={() => setShowChat(!showChat)}
+            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            {showChat ? "Hide Chat" : "Show Chat"}
+          </button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex">
+      {/* Main content area */}
+      <div className="flex flex-1 pt-16">
         {/* Editor */}
-        <div className="flex-1 p-6">
-          <div className="h-full bg-white rounded-lg border border-gray-200 p-6 relative">
+        <div className="flex-1 flex flex-col">
+          <div className="flex-1 relative">
             <textarea
-              ref={textareaRef}
+              ref={editorRef}
               value={content}
               onChange={handleContentChange}
-              onSelect={handleCursorMove}
               onKeyUp={handleCursorMove}
-              className="w-full h-full resize-none border-none outline-none text-gray-900 leading-relaxed"
-              placeholder="Start writing your document..."
+              onMouseUp={handleCursorMove}
+              className="w-full h-full p-4 font-mono text-sm resize-none border-none outline-none"
+              placeholder="Start typing your document..."
             />
-
-            {/* Live Cursors */}
-            {Object.entries(cursors).map(([user, data]: [string, any]) => {
-              if (user === username) return null;
-
-              return (
-                <div
-                  key={user}
-                  className="absolute pointer-events-none"
-                  style={{
-                    top: `${Math.floor(data.position / 80) * 24 + 24}px`,
-                    left: `${(data.position % 80) * 8 + 24}px`,
-                  }}
-                >
-                  <div className="bg-blue-500 w-0.5 h-5"></div>
-                  <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded-md whitespace-nowrap -mt-1">
-                    {user}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Chat Panel */}
-        <div className="w-80 border-l border-gray-200 bg-white flex flex-col">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="font-semibold text-gray-900">Chat</h2>
-          </div>
-
-          <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-            {messages.map((msg: any) => (
-              <div key={msg.id} className="group">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-medium text-sm text-gray-900">
-                    {msg.username}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {formatTime(msg.created_at)}
-                  </span>
-                </div>
-                <p className="text-gray-700 mt-1">{msg.message}</p>
-              </div>
-            ))}
-          </div>
-
-          <form
-            onSubmit={handleSendMessage}
-            className="p-4 border-t border-gray-200"
-          >
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              />
-              <button
-                type="submit"
-                disabled={!newMessage.trim()}
-                className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Send className="h-4 w-4" />
-              </button>
+            {/* Cursor overlays */}
+            <div className="absolute top-4 left-4 pointer-events-none">
+              {renderCursors()}
             </div>
-          </form>
+          </div>
+
+          {/* Typing indicator */}
+          {getTypingUsers().length > 0 && (
+            <div className="px-4 py-2 bg-yellow-50 border-t text-sm text-gray-600">
+              <span className="italic">
+                {getTypingUsers().join(", ")}{" "}
+                {getTypingUsers().length === 1 ? "is" : "are"} typing...
+              </span>
+            </div>
+          )}
         </div>
+
+        {/* Chat panel */}
+        {showChat && (
+          <div className="w-80 bg-white border-l flex flex-col">
+            <div className="p-3 border-b bg-gray-50">
+              <h3 className="font-semibold">Document Chat</h3>
+            </div>
+
+            {/* Messages */}
+            <div ref={chatRef} className="flex-1 overflow-y-auto p-3 space-y-2">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`p-2 rounded max-w-xs ${
+                    message.username === currentUser
+                      ? "bg-blue-600 text-white ml-auto"
+                      : "bg-gray-200"
+                  }`}
+                >
+                  <div className="text-xs opacity-75 mb-1">
+                    {message.username} •{" "}
+                    {new Date(message.created_at).toLocaleTimeString()}
+                  </div>
+                  <div className="text-sm">{message.message}</div>
+                </div>
+              ))}
+
+              {/* Chat typing indicator */}
+              {getChatTypingUsers().length > 0 && (
+                <div className="text-xs text-gray-500 italic">
+                  {getChatTypingUsers().join(", ")}{" "}
+                  {getChatTypingUsers().length === 1 ? "is" : "are"} typing...
+                </div>
+              )}
+            </div>
+
+            {/* Message input */}
+            <form onSubmit={handleSendMessage} className="p-3 border-t">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => {
+                    setNewMessage(e.target.value);
+                    handleChatTyping();
+                  }}
+                  placeholder="Type a message..."
+                  className="flex-1 px-3 py-2 border rounded-lg text-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={!newMessage.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Send
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
-}
+};
