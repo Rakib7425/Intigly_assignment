@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Plus, FileText, LogOut, Users, Clock } from "lucide-react";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
+import { Plus, FileText, LogOut, Users, Clock, Search } from "lucide-react";
 
 interface DocumentListProps {
   documents: any[];
@@ -9,7 +9,7 @@ interface DocumentListProps {
   onLogout: () => void;
 }
 
-export function DocumentList({
+export default function DocumentList({
   documents,
   username,
   onCreateDocument,
@@ -18,6 +18,16 @@ export function DocumentList({
 }: DocumentListProps) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedTerm, setDebouncedTerm] = useState("");
+
+  // Debounce effect (300ms)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,29 +38,39 @@ export function DocumentList({
     }
   };
 
-  const capitalize = (str: string) => {
+  const capitalize = useCallback((str: string) => {
     if (!str) return "";
     return str.charAt(0).toUpperCase() + str.slice(1);
-  };
+  }, []);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
+  }, []);
 
-  // Helper to get random color for avatars
   const getAvatarColor = (index: number) => {
     const colors = [
-      "rgb(239, 68, 68)",
-      "rgb(34, 197, 94)",
-      "rgb(139, 92, 246)",
+      "rgba(243, 35, 35, 1)",
+      "rgba(20, 186, 81, 1)",
+      "rgba(109, 51, 244, 1)",
     ];
     return colors[index % colors.length];
   };
+
+  // Filter documents by debounced search
+  const filteredDocs = useMemo(() => {
+    if (!debouncedTerm) return documents;
+    const term = debouncedTerm.toLowerCase();
+    return documents.filter(
+      (doc) =>
+        doc.title?.toLowerCase().includes(term) ||
+        doc.content?.toLowerCase().includes(term)
+    );
+  }, [debouncedTerm, documents]);
 
   return (
     <div className="flex flex-col h-full">
@@ -76,7 +96,7 @@ export function DocumentList({
         {!showCreateForm ? (
           <button
             onClick={() => setShowCreateForm(true)}
-            className="flex items-center gap-2 w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-all duration-200"
+            className="flex items-center gap-2 w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-all duration-200"
           >
             <Plus className="h-5 w-5" />
             Create New Document
@@ -113,33 +133,35 @@ export function DocumentList({
         )}
       </div>
 
+      <div className="topSection flex items-center justify-between gap-4 p-6 ">
+        <h2 className="text-lg font-semibold text-gray-900">Your Documents</h2>
+
+        {/* Search Box with Icon */}
+        <div className="relative w-2/3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search documents..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
       {/* Documents List */}
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="topSection flex items-center justify-between gap-4 mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Your Documents
-          </h2>
-
-          <div className="searchBox flex gap-2">
-            <input
-              type="text"
-              placeholder="Search documents..."
-              className="border border-gray-300 rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-full"
-            />
-          </div>
-        </div>
-
-        {!documents.length ? (
+        {!filteredDocs.length ? (
           <div className="text-center py-12">
             <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No documents yet</p>
+            <p className="text-gray-600">No documents found</p>
             <p className="text-sm text-gray-400">
-              Create your first document to get started
+              Try creating a new one or adjusting your search
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {documents.map((doc) => (
+            {filteredDocs.map((doc) => (
               <div
                 key={doc.id}
                 onClick={() => onOpenDocument(doc.id)}
@@ -182,11 +204,11 @@ export function DocumentList({
                     </div>
                   </div>
                   <div className="flex -space-x-1">
-                    {(doc.collaborators || ["R", "R", "R"]).map(
+                    {(doc.collaborators || ["R", "S", "M"]).map(
                       (collaborator: string, i: number) => (
                         <div
                           key={i}
-                          className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium text-white"
+                          className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium text-white"
                           style={{
                             backgroundColor: getAvatarColor(i),
                             zIndex: 10 - i,
