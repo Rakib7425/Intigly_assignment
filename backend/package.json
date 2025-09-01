@@ -10,7 +10,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "studio": "yarn drizzle-kit studio",
-    "db:repair": "yarn drizzle-kit generate && yarn drizzle-kit migrate && yarn drizzle-kit push && yarn drizzle-kit pull && yarn drizzle-kit check && yarn drizzle-kit up && yarn drizzle-kit studio"
+    "db:repair": "yarn drizzle-kit generate && yarn drizzle-kit migrate && yarn drizzle-kit push && yarn drizzle-kit pull && yarn drizzle-kit check"
   },
   "dependencies": {
     "cors": "^2.8.5",

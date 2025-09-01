@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import * as AuthService from "../services/auth.service.ts";
-import { SocketManager } from "../services/SocketManager.ts";
+import socketHandler from "../socket/socketHandler.ts";
+import { DatabaseManager } from "../db/databaseManager.ts";
 
 export async function login(req: Request, res: Response) {
   try {
@@ -9,7 +10,11 @@ export async function login(req: Request, res: Response) {
       return res.status(400).json({ error: "username required" });
     }
 
-    const user = await AuthService.ensureUser(SocketManager, username);
+    const user = await AuthService.ensureUser(
+      socketHandler,
+      username,
+      DatabaseManager
+    );
     return res.json(user);
   } catch (err) {
     console.error("auth error:", err);

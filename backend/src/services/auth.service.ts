@@ -38,7 +38,7 @@ export const createAuthService = (dbManager: any) => {
       const user = await getUserFromDB(username);
 
       if (user) {
-        logMessage("User found:", user);
+        // logMessage("User found:", user);
         emitIfSocket(socket, "user:exists", user);
         return user;
       }
@@ -86,7 +86,7 @@ export const ensureUser = async (
     let user = await dbManager.getUserByUsername(username);
 
     if (user) {
-      console.log("User found:", user);
+      // console.log("User found:", user);
       socket?.emit("user:exists", user);
       return user;
     }
@@ -113,7 +113,7 @@ export const createEnsureUser =
       const user = await db.getUserByUsername(username);
 
       if (user) {
-        logMessage("User found:", user);
+        // logMessage("User found:", user);
         emitIfSocket(socket, "user:exists", user);
         return user;
       }
@@ -162,7 +162,7 @@ export const ensureUserWithEffects = async (
       logMessage("New user created:", user);
       emitIfSocket(socket, "user:created", user);
     } else {
-      logMessage("User found:", user);
+      // logMessage("User found:", user);
       emitIfSocket(socket, "user:exists", user);
     }
 

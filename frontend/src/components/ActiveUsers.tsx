@@ -1,4 +1,3 @@
-import React from "react";
 import { User, Circle } from "lucide-react";
 
 interface ActiveUsersProps {

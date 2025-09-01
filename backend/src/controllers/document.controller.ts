@@ -12,7 +12,7 @@ export async function getDocuments(req: Request, res: Response) {
 
 export async function getDocumentById(req: Request, res: Response) {
   try {
-    const doc = await DocumentService.getDocument(Number(req.params.id));
+    const doc = await getDocument(Number(req.params.id));
     if (!doc) return res.status(404).json({ error: "not found" });
     res.json(doc);
   } catch (err) {

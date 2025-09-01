@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, FileText, LogOut, Clock } from "lucide-react";
+import { Plus, FileText, LogOut, Users, Clock } from "lucide-react";
 
 interface DocumentListProps {
   documents: any[];
@@ -8,7 +8,6 @@ interface DocumentListProps {
   onOpenDocument: (documentId: number) => void;
   onLogout: () => void;
 }
-
 
 export function DocumentList({
   documents,
@@ -29,6 +28,11 @@ export function DocumentList({
     }
   };
 
+  const capitalize = (str: string) => {
+    if (!str) return "";
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short",
@@ -36,6 +40,16 @@ export function DocumentList({
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  // Helper to get random color for avatars
+  const getAvatarColor = (index: number) => {
+    const colors = [
+      "rgb(239, 68, 68)",
+      "rgb(34, 197, 94)",
+      "rgb(139, 92, 246)",
+    ];
+    return colors[index % colors.length];
   };
 
   return (
@@ -101,10 +115,21 @@ export function DocumentList({
 
       {/* Documents List */}
       <div className="flex-1 overflow-y-auto p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Your Documents
-        </h2>
-        {documents.length === 0 ? (
+        <div className="topSection flex items-center justify-between gap-4 mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Your Documents
+          </h2>
+
+          <div className="searchBox flex gap-2">
+            <input
+              type="text"
+              placeholder="Search documents..."
+              className="border border-gray-300 rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-full"
+            />
+          </div>
+        </div>
+
+        {!documents.length ? (
           <div className="text-center py-12">
             <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">No documents yet</p>
@@ -113,25 +138,64 @@ export function DocumentList({
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {documents.map((doc) => (
               <div
                 key={doc.id}
                 onClick={() => onOpenDocument(doc.id)}
-                className="bg-white p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md cursor-pointer transition-all duration-200 group"
+                className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-blue-200 transition-all duration-200 cursor-pointer group"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {doc.title}
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Created by {doc.created_by}
-                    </p>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors duration-200">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors duration-200">
+                        {doc.title || "untitled"}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        by{" "}
+                        <span className="text-[limegreen] font-semibold">
+                          {doc.createdByUsername
+                            ? capitalize(doc.createdByUsername)
+                            : doc.createdBy
+                            ? capitalize(doc.createdBy)
+                            : "Unknown"}
+                        </span>
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-400">
-                    <Clock className="h-3 w-3" />
-                    {formatDate(doc.updated_at)}
+                </div>
+                <div className="text-sm text-gray-600 mb-4 line-clamp-2">
+                  {doc.content || "No content available"}
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-1">
+                      <Users className="w-3 h-3" />
+                      <span>{doc.collaborators?.length || 3}</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Clock className="w-3 h-3" />
+                      <span>{formatDate(doc.createdAt)}</span>
+                    </div>
+                  </div>
+                  <div className="flex -space-x-1">
+                    {(doc.collaborators || ["R", "R", "R"]).map(
+                      (collaborator: string, i: number) => (
+                        <div
+                          key={i}
+                          className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium text-white"
+                          style={{
+                            backgroundColor: getAvatarColor(i),
+                            zIndex: 10 - i,
+                          }}
+                        >
+                          {collaborator[0]?.toUpperCase() || "R"}
+                        </div>
+                      )
+                    )}
                   </div>
                 </div>
               </div>

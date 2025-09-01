@@ -1,36 +1,72 @@
-import { SocketManager } from "./SocketManager.ts";
+import { eq } from "drizzle-orm/sql/expressions/conditions";
+import { DatabaseManager } from "../db/databaseManager.ts";
+import { documents, users } from "../db/schema.ts";
+import socketHandler from "../socket/socketHandler.ts";
+const { db } = new DatabaseManager();
 
-export const getDocuments = (socketManager: SocketManager) => {
-  socketManager.emit("getDocuments");
+export const getDocuments = async () => {
+  const allDocs = await db.select().from(documents);
+  // console.log("Fetched documents:", allDocs);
+  return allDocs;
+};
+export const ensureUser = async (username: string) => {
+  const user = await db
+    .select()
+    .from(users)
+    .where(eq(users.username, username));
+  if (!user) throw new Error("User not found");
+  return user;
 };
 
-export const onDocuments = (
-  socketManager: SocketManager,
-  callback: (docs: any[]) => void
-) => {
-  socketManager.on("documents", callback);
+export const createDocument = async (title: string, username: string) => {
+  await ensureUser(username);
+
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.username, username));
+
+  const [newDoc] = await db
+    .insert(documents)
+    .values({
+      title,
+      content: "New Document",
+      server_version: 0,
+      created_by: user.id,
+      created_by_username: user.username,
+
+      createdBy: user.id,
+      createdByUsername: user.username,
+    })
+    .returning();
+
+  // console.log("New document created:", newDoc);
+  return newDoc;
 };
 
-export const createDocument = (socketManager: SocketManager, title: string) => {
-  socketManager.emit("createDocument", { title });
-};
-
-export const onDocumentCreated = (
-  socketManager: SocketManager,
+export const onDocumentCreated = async (
+  socketManager: socketHandler,
   callback: (doc: any) => void
 ) => {
   socketManager.on("documentCreated", callback);
 };
 
 export const joinDocument = (
-  socketManager: SocketManager,
+  socketManager: socketHandler,
   documentId: number
 ) => {
   socketManager.emit("joinDocument", { documentId });
 };
 
+export const getMessagesByDocumentId = (
+  socketManager: socketHandler,
+  documentId: number
+) => {
+  socketManager.emit("getMessages", { documentId });
+};
+
 export const onDocumentJoined = (
-  socketManager: SocketManager,
+  socketManager: socketHandler,
   callback: (data: {
     document: any;
     chat: any[];
@@ -42,7 +78,7 @@ export const onDocumentJoined = (
 };
 
 export const sendEdit = (
-  socketManager: SocketManager,
+  socketManager: socketHandler,
   documentId: number,
   content: string,
   clientVersion?: number,
@@ -57,7 +93,7 @@ export const sendEdit = (
 };
 
 export const onDocumentUpdate = (
-  socketManager: SocketManager,
+  socketManager: socketHandler,
   callback: (data: {
     content: string;
     author: string;
@@ -72,7 +108,7 @@ export const onDocumentUpdate = (
 };
 
 export const onContentReject = (
-  socketManager: SocketManager,
+  socketManager: socketHandler,
   callback: (data: { content: string; serverVersion: number }) => void
 ) => {
   socketManager.on("content:reject", (data) => {

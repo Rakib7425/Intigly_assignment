@@ -63,3 +63,6 @@ export class DatabaseManager {
     return rows[0];
   }
 }
+
+export const db = new DatabaseManager().db;
+export default new DatabaseManager();

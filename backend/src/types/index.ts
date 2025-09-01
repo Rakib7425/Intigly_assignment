@@ -1,5 +1,3 @@
-import type { SocketHandler } from "../services/SocketHandler.ts";
-
 export interface User {
   id: number;
   username: string;
@@ -135,14 +133,3 @@ export interface SocketData {
   username?: string;
   currentDocumentId?: number;
 }
-
-// Component prop types
-export interface DocumentEditorProps {
-  socketManager: SocketHandler;
-  document: Document;
-  currentUser: string;
-  onBack: () => void;
-}
-
-// Export SocketHandler
-export { SocketHandler } from "../services/SocketHandler";

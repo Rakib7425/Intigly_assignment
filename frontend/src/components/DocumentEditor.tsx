@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { SocketManager, Document, ChatMessage, CursorPosition } from "./types";
+import {
+  SocketHandler,
+  Document,
+  ChatMessage,
+  CursorPosition,
+} from "../types/index.ts";
 
 interface DocumentEditorProps {
-  socketManager: SocketManager;
+  socketManager: socketHandler;
   document: Document;
   currentUser: string;
   onBack: () => void;

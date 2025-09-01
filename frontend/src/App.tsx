@@ -1,52 +1,57 @@
 import { useState, useEffect } from "react";
 import { AuthScreen } from "./components/AuthScreen";
 import { MainInterface } from "./components/MainInterface";
-import { SocketManager } from "./services/SocketManager.ts";
+import { SocketHandler } from "./services/SocketHandler";
 
 function App() {
-  const [user, setUser] = useState<string | null>(null);
-  const [socketManager, setSocketManager] = useState<SocketManager | null>(
+  const [user, setUser] = useState<any>(null);
+  const [socketManager, setSocketManager] = useState<SocketHandler | null>(
     null
   );
+
+  // When authenticated by backend
   useEffect(() => {
-    if (user) {
-      const sm = new SocketManager();
-      sm.connect(user)
-        .then(() => {
-          setSocketManager(sm);
-          console.log("Socket connected successfully");
-        })
-        .catch((error) => {
-          console.error("Failed to connect socket:", error);
-          setUser(null); // Reset auth on connection failure
-        });
+    if (!socketManager) return; // ✅ check instance, not class
 
-      return () => {
-        sm.disconnect();
-      };
-    }
-  }, [user]);
+    const handleAuthenticated = (userData: any) => {
+      console.log("✅ Authenticated:", userData);
+      setUser(userData);
 
-  useEffect(() => {
-    if (user) {
-      const sm = new SocketManager();
-      sm.connect(user);
-      setSocketManager(sm);
+      // ask backend for documents
+      socketManager.emit("getDocuments");
+    };
 
-      return () => {
-        sm.disconnect();
-      };
-    }
-  }, [user]);
+    socketManager.on("authenticated", handleAuthenticated);
 
+    return () => {
+      socketManager.off("authenticated", handleAuthenticated);
+    };
+  }, [socketManager]);
+
+  // If not logged in, show auth screen
   if (!user) {
-    return <AuthScreen onAuth={setUser} />;
+    return (
+      <AuthScreen
+        onAuth={(username: string) => {
+          // create socket only after clicking "Join"
+          const sh = new SocketHandler(
+            import.meta.env.VITE_APP_BACKEND_URL || "http://localhost:3001"
+          );
+          setSocketManager(sh);
+
+          // connect & authenticate
+          sh.connect(() => {
+            sh.emit("authenticate", { username });
+          });
+        }}
+      />
+    );
   }
 
   return (
     <MainInterface
-      username={user}
-      socketManager={socketManager!}
+      username={user.username}
+      socketHandler={socketManager!}
       onLogout={() => {
         socketManager?.disconnect();
         setUser(null);

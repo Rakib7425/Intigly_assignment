@@ -2,15 +2,20 @@ import { createAuthService } from "../services/auth.service.ts";
 import { createPresenceService } from "../services/presence.service.ts";
 import { DatabaseManager } from "../db/databaseManager.js";
 import { RedisManager } from "../db/redis.ts";
+import {
+  createDocument,
+  getDocuments,
+  getMessagesByDocumentId,
+} from "../services/document.service.ts";
+import { Socket } from "socket.io";
 
-// Initialize services with their dependencies
 const dbManager = new DatabaseManager();
 const redisManager = new RedisManager();
 
 const authService = createAuthService(dbManager);
 const presenceService = createPresenceService(redisManager);
 
-export function socketHandler(io: Server) {
+export default function socketHandler(io) {
   io.on("connection", (socket: Socket) => {
     console.log("Connected:", socket.id);
 
@@ -23,17 +28,44 @@ export function socketHandler(io: Server) {
         socket.data.userId = user.id;
         socket.data.username = user.username;
 
-        // Use the presence service
         await presenceService.addActiveUser(user.username);
         const active = await presenceService.getActiveUsers();
 
         io.emit("activeUsers", active);
         socket.emit("authenticated", user);
 
-        console.log("User authenticated successfully:", user.username);
+        // console.log("User authenticated successfully:", user);
       } catch (err) {
         console.error("Auth error:", err);
         socket.emit("auth:error", { message: "Authentication failed" });
+      }
+    });
+
+    socket.on("getDocuments", async () => {
+      const docs = await getDocuments();
+      socket.emit("documents", docs);
+    });
+
+    socket.on("createDocument", async ({ title }) => {
+      if (!title || typeof title !== "string" || title.trim() === "") {
+        socket.emit("error", { message: "Invalid document title" });
+        return;
+      }
+
+      if (!socket.data.userId || !socket.data.username) {
+        socket.emit("auth:error", { message: "User not authenticated" });
+        return;
+      }
+
+      try {
+        const newDoc = await createDocument(title, socket.data.username);
+
+        // Send to creator + broadcast to others
+        socket.emit("documentCreated", newDoc);
+        socket.broadcast.emit("documentCreated", newDoc);
+      } catch (err) {
+        console.error("Error creating document:", err);
+        socket.emit("error", { message: "Failed to create document" });
       }
     });
 
@@ -46,8 +78,8 @@ export function socketHandler(io: Server) {
       // Use presence service
       await presenceService.addUserToDocument(documentId, socket.data.username);
 
-      const doc = await DocumentService.getDocuments(documentId);
-      const messages = await ChatService.getMessages(documentId);
+      const doc = await getDocuments();
+      const messages = await getMessagesByDocumentId(documentId);
       const users = await presenceService.getDocumentUsers(documentId);
       const cursors = await presenceService.getDocumentCursors(documentId);
 

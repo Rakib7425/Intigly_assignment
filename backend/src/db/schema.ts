@@ -19,13 +19,17 @@ export const users = pgTable("users", {
 export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
-  content: text("content").notNull().default(""),
+  content: text("content").notNull().default("New Document"),
   serverVersion: integer("server_version").notNull().default(0),
   createdBy: integer("created_by")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  createdByUsername: text("created_by_username")
+    .notNull()
+    .references(() => users.username, { onDelete: "cascade" }),
+
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Chat messages table

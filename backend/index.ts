@@ -9,14 +9,13 @@ import authRoutes from "./src/routes/auth.routes";
 import docRoutes from "./src/routes/document.routes";
 import chatRoutes from "./src/routes/chat.routes";
 
-import { socketHandler } from "./src/socket/socketHandler.js";
+import socketHandler from "./src/socket/socketHandler.js";
 
 import { DatabaseManager } from "./src/db/databaseManager.js";
 import { RedisManager } from "./src/db/redis.ts";
 
 async function startServer() {
   try {
-    // Initialize managers
     const dbManager = new DatabaseManager();
     const redisManager = new RedisManager();
 

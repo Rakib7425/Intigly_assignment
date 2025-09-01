@@ -1,7 +1,7 @@
-import { SocketManager } from "./SocketManager";
+import { socketHandler } from "./socketHandler";
 
 export const sendMessage = (
-  socketManager: SocketManager,
+  socketManager: socketHandler,
   documentId: number,
   message: string
 ) => {
@@ -9,7 +9,7 @@ export const sendMessage = (
 };
 
 export const onNewMessage = (
-  socketManager: SocketManager,
+  socketManager: socketHandler,
   callback: (message: {
     id: number;
     documentId: number;
