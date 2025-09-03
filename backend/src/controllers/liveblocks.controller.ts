@@ -13,9 +13,18 @@ export async function authorize(req: AuthenticatedRequest, res: Response) {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
-    logMessage("Authorizing user for room:", room, "user:", username);
+    // Debug log to confirm values
+    logMessage(
+      "Authorizing user for room:",
+      room,
+      "user:",
+      username,
+      "id:",
+      userId
+    );
 
-    const session = liveblocksClient.prepareSession(userId, {
+    // Ensure userId is always a string
+    const session = liveblocksClient.prepareSession(String(userId), {
       userInfo: {
         name: username,
         color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`,
@@ -44,7 +53,7 @@ export async function getRoomInfo(req: AuthenticatedRequest, res: Response) {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
-    logMessage("Getting room info for:", roomId);
+    logMessage("Getting room info for:", roomId, "requested by user:", userId);
 
     const room = await liveblocksClient.getRoom(roomId);
 
