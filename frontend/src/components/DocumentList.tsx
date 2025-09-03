@@ -1,11 +1,13 @@
 import React, { useCallback, useMemo, useState, useEffect } from "react";
-import { Plus, FileText, LogOut, Users, Clock, Search } from "lucide-react";
+import { Plus, FileText, Users, Clock, Search } from "lucide-react";
+import { Document } from "../types";
+import Header from "./Header";
 
 interface DocumentListProps {
-  documents: any[];
+  documents: Document[];
   username: string;
   onCreateDocument: (title: string) => void;
-  onOpenDocument: (documentId: number) => void;
+  onOpenDocumentAndRedirect: (documentId: number, title: string) => void;
   onLogout: () => void;
 }
 
@@ -13,7 +15,7 @@ export default function DocumentList({
   documents,
   username,
   onCreateDocument,
-  onOpenDocument,
+  onOpenDocumentAndRedirect,
   onLogout,
 }: DocumentListProps) {
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -75,21 +77,7 @@ export default function DocumentList({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">CollabDocs</h1>
-            <p className="text-gray-600">Welcome, {username}</p>
-          </div>
-          <button
-            onClick={onLogout}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </button>
-        </div>
-      </div>
+      <Header username={username} onLogout={onLogout} />
 
       {/* Create Document Section */}
       <div className="bg-white border-b border-gray-200 p-6">
@@ -164,7 +152,7 @@ export default function DocumentList({
             {filteredDocs.map((doc) => (
               <div
                 key={doc.id}
-                onClick={() => onOpenDocument(doc.id)}
+                onClick={() => onOpenDocumentAndRedirect(doc.id, doc.title)}
                 className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-blue-200 transition-all duration-200 cursor-pointer group"
               >
                 <div className="flex items-start justify-between mb-4">

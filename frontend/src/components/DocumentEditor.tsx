@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  SocketHandler,
+  socketHandler,
   Document,
   ChatMessage,
   CursorPosition,
+  SocketHandler,
 } from "../types/index.ts";
 
 interface DocumentEditorProps {
-  socketManager: socketHandler;
+  socketHandler: SocketHandler;
   document: Document;
   currentUser: string;
   onBack: () => void;
 }
 
 export const DocumentEditor: React.FC<DocumentEditorProps> = ({
-  socketManager,
+  socketHandler,
   document,
   currentUser,
   onBack,
@@ -141,35 +142,35 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
     };
 
     // Subscribe to events
-    socketManager.on("documentUpdate", handleDocumentUpdate);
-    socketManager.on("chat:new", handleChatMessage);
-    socketManager.on("presence:update", handlePresenceUpdate);
-    socketManager.on("cursorsUpdate", handleCursorsUpdate);
-    socketManager.on("typing:start", handleTypingStart);
-    socketManager.on("typing:stop", handleTypingStop);
-    socketManager.on("connectionStatus", handleConnectionStatus);
-    socketManager.on("conflict", handleConflict);
-    socketManager.on("documentSynced", handleDocumentSynced);
+    socketHandler.on("documentUpdate", handleDocumentUpdate);
+    socketHandler.on("chat:new", handleChatMessage);
+    socketHandler.on("presence:update", handlePresenceUpdate);
+    socketHandler.on("cursorsUpdate", handleCursorsUpdate);
+    socketHandler.on("typing:start", handleTypingStart);
+    socketHandler.on("typing:stop", handleTypingStop);
+    socketHandler.on("connectionStatus", handleConnectionStatus);
+    socketHandler.on("conflict", handleConflict);
+    socketHandler.on("documentSynced", handleDocumentSynced);
 
     // Set current document for reconnection
-    socketManager.setCurrentDocument(document.id.toString());
+    socketHandler.setCurrentDocument(document.id.toString());
 
     return () => {
-      socketManager.off("documentUpdate", handleDocumentUpdate);
-      socketManager.off("chat:new", handleChatMessage);
-      socketManager.off("presence:update", handlePresenceUpdate);
-      socketManager.off("cursorsUpdate", handleCursorsUpdate);
-      socketManager.off("typing:start", handleTypingStart);
-      socketManager.off("typing:stop", handleTypingStop);
-      socketManager.off("connectionStatus", handleConnectionStatus);
-      socketManager.off("conflict", handleConflict);
-      socketManager.off("documentSynced", handleDocumentSynced);
+      socketHandler.off("documentUpdate", handleDocumentUpdate);
+      socketHandler.off("chat:new", handleChatMessage);
+      socketHandler.off("presence:update", handlePresenceUpdate);
+      socketHandler.off("cursorsUpdate", handleCursorsUpdate);
+      socketHandler.off("typing:start", handleTypingStart);
+      socketHandler.off("typing:stop", handleTypingStop);
+      socketHandler.off("connectionStatus", handleConnectionStatus);
+      socketHandler.off("conflict", handleConflict);
+      socketHandler.off("documentSynced", handleDocumentSynced);
 
       // Leave document when component unmounts
-      socketManager.emit("leaveDocument", { documentId: document.id });
-      socketManager.setCurrentDocument(null);
+      socketHandler.emit("leaveDocument", { documentId: document.id });
+      socketHandler.setCurrentDocument(null);
     };
-  }, [socketManager, document.id, currentUser]);
+  }, [socketHandler, document.id, currentUser]);
 
   // Load initial data
   useEffect(() => {
@@ -189,13 +190,13 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
       setCursors(otherCursors);
     };
 
-    socketManager.on("documentJoined", handleDocumentJoined);
-    socketManager.emit("joinDocument", { documentId: document.id });
+    socketHandler.on("documentJoined", handleDocumentJoined);
+    socketHandler.emit("joinDocument", { documentId: document.id });
 
     return () => {
-      socketManager.off("documentJoined", handleDocumentJoined);
+      socketHandler.off("documentJoined", handleDocumentJoined);
     };
-  }, [socketManager, document.id, currentUser]);
+  }, [socketHandler, document.id, currentUser]);
 
   // Handle content changes
   const handleContentChange = useCallback(
@@ -217,7 +218,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
       };
 
       // Emit typing indicator
-      socketManager.emit("typing:start", {
+      socketHandler.emit("typing:start", {
         documentId: document.id,
         type: "editor",
       });
@@ -227,7 +228,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
       }
 
       typingTimeoutRef.current = setTimeout(() => {
-        socketManager.emit("typing:stop", {
+        socketHandler.emit("typing:stop", {
           documentId: document.id,
           type: "editor",
         });
@@ -235,7 +236,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
 
       // Debounce document updates
       const timeoutId = setTimeout(() => {
-        socketManager.emit("documentEdit", {
+        socketHandler.emit("documentEdit", {
           documentId: document.id,
           content: newContent,
           cursor,
@@ -245,7 +246,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
 
       return () => clearTimeout(timeoutId);
     },
-    [socketManager, document.id]
+    [socketHandler, document.id]
   );
 
   // Handle cursor movement without content change
@@ -282,16 +283,16 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
         };
       }
 
-      socketManager.emit("cursorMove", { documentId: document.id, cursor });
+      socketHandler.emit("cursorMove", { documentId: document.id, cursor });
     },
-    [socketManager, document.id]
+    [socketHandler, document.id]
   );
 
   // Handle chat message sending
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (newMessage.trim()) {
-      socketManager.emit("sendMessage", {
+      socketHandler.emit("sendMessage", {
         documentId: document.id,
         message: newMessage.trim(),
       });
@@ -301,7 +302,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
 
   // Handle chat typing
   const handleChatTyping = useCallback(() => {
-    socketManager.emit("typing:start", {
+    socketHandler.emit("typing:start", {
       documentId: document.id,
       type: "chat",
     });
@@ -311,12 +312,12 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
     }
 
     chatTypingTimeoutRef.current = setTimeout(() => {
-      socketManager.emit("typing:stop", {
+      socketHandler.emit("typing:stop", {
         documentId: document.id,
         type: "chat",
       });
     }, 1000);
-  }, [socketManager, document.id]);
+  }, [socketHandler, document.id]);
 
   // Render cursor overlays (simplified version)
   const renderCursors = () => {

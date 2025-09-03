@@ -69,6 +69,7 @@ export default function socketHandler(io) {
       }
     });
 
+    // Implement from here onwards
     socket.on("joinDocument", async ({ documentId }) => {
       if (!socket.data.userId) return;
 

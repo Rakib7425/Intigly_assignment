@@ -2,6 +2,7 @@ import { Socket } from "socket.io";
 import { RedisManager } from "../db/redis.ts";
 import { DatabaseManager } from "../db/databaseManager.js";
 import { logError, logMessage } from "../utils/logger.ts";
+import { generateToken } from "../utils/jwt.js";
 
 const emitIfSocket = (
   socket: Socket | undefined,

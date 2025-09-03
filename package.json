@@ -1,0 +1,25 @@
+{
+  "name": "collaborative-docs",
+  "version": "1.0.0",
+  "description": "A full-stack React and Node.js application with real-time collaboration features",
+  "scripts": {
+    "dev": "concurrently \"cd backend && yarn dev\" \"cd frontend && yarn dev\"",
+    "build": "cd backend && yarn build && cd ../frontend && yarn build",
+    "start": "cd backend && yarn start",
+    "install:all": "cd backend && yarn install && cd ../frontend && yarn install",
+    "setup": "yarn install:all && echo 'Setup complete! Make sure to configure your .env files.'"
+  },
+  "keywords": [
+    "react",
+    "nodejs",
+    "collaboration",
+    "real-time",
+    "liveblocks",
+    "typescript"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

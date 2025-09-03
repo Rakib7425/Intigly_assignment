@@ -8,6 +8,7 @@ import cors from "cors";
 import authRoutes from "./src/routes/auth.routes";
 import docRoutes from "./src/routes/document.routes";
 import chatRoutes from "./src/routes/chat.routes";
+import liveblocksRoutes from "./src/routes/liveblocks.routes";
 
 import socketHandler from "./src/socket/socketHandler.js";
 
@@ -49,6 +50,7 @@ async function startServer() {
     app.use("/api/auth", authRoutes);
     app.use("/api/documents", docRoutes);
     app.use("/api/chat", chatRoutes);
+    app.use("/api/liveblocks", liveblocksRoutes);
 
     socketHandler(io);
 

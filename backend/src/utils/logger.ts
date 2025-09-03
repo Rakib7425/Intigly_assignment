@@ -1,7 +1,7 @@
-export const logMessage = (message: string, data?: any): void => {
-  console.log(message, data ? data : "");
+export const logMessage = (...args: any[]): void => {
+  console.log(...args);
 };
 
-export const logError = (message: string, error: any): void => {
-  console.error(message, error);
+export const logError = (...args: any[]): void => {
+  console.error(...args);
 };

@@ -11,8 +11,8 @@ import {
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
-  isOnline: boolean("is_online").notNull().default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+  isOnline: boolean().notNull().default(false),
+  createdAt: timestamp().defaultNow(),
 });
 
 // Documents table
@@ -20,27 +20,27 @@ export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   content: text("content").notNull().default("New Document"),
-  serverVersion: integer("server_version").notNull().default(0),
-  createdBy: integer("created_by")
+  serverVersion: integer("").notNull().default(0),
+  createdBy: integer()
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  createdByUsername: text("created_by_username")
+  createdByUsername: text()
     .notNull()
     .references(() => users.username, { onDelete: "cascade" }),
 
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp().defaultNow(),
+  updatedAt: timestamp().defaultNow(),
 });
 
 // Chat messages table
-export const chatMessages = pgTable("chat_messages", {
-  id: serial("id").primaryKey(),
-  documentId: integer("document_id")
+export const chatMessages = pgTable("chatMessages", {
+  id: serial().primaryKey(),
+  documentId: integer()
     .notNull()
     .references(() => documents.id, { onDelete: "cascade" }),
-  userId: integer("user_id")
+  userId: integer()
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  message: text("message").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+  message: text().notNull(),
+  createdAt: timestamp().defaultNow(),
 });
