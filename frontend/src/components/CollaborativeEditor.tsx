@@ -6,6 +6,7 @@ import {
   useStorage,
   useMutation,
   useMyPresence,
+  useRoom,
 } from "@liveblocks/react";
 import { apiService } from "../services/api";
 import { useAuthStore } from "../stores/authStore";
@@ -18,105 +19,7 @@ interface CollaborativeEditorProps {
   documentTitle: string;
 }
 
-// Chat component with Liveblocks storage (legacy - not used)
-function ChatPanel() {
-  const [newMessage, setNewMessage] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuthStore();
-
-  // Use Liveblocks storage for persistent chat messages
-  const messages = useStorage((root) => root.messages || []);
-  const addMessage = useMutation(({ storage }, message: any) => {
-    const messages = storage.get("messages") || [];
-    if (Array.isArray(messages)) {
-      messages.push(message);
-      storage.set("messages", messages);
-    }
-  }, []);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !user) return;
-
-    const message = {
-      id: Date.now().toString(),
-      user: user.username,
-      message: newMessage.trim(),
-      timestamp: new Date().toISOString(),
-      color: `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`,
-    };
-
-    addMessage(message);
-    setNewMessage("");
-  };
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg h-80 flex flex-col">
-      <div className="p-3 border-b border-gray-200 flex items-center gap-2">
-        <MessageSquare className="h-4 w-4 text-gray-600" />
-        <span className="font-medium text-sm text-gray-900">Chat</span>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {!messages || messages.length === 0 ? (
-          <p className="text-gray-500 text-sm text-center py-4">
-            No messages yet. Start the conversation!
-          </p>
-        ) : (
-          Array.isArray(messages) &&
-          messages.map((msg: any) => (
-            <div key={msg.id} className="flex flex-col space-y-1">
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: msg.color }}
-                />
-                <span className="text-xs font-medium text-gray-700">
-                  {msg.user}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {new Date(msg.timestamp).toLocaleTimeString()}
-                </span>
-              </div>
-              <p className="text-sm text-gray-900 ml-4">{msg.message}</p>
-            </div>
-          ))
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      <form
-        onSubmit={handleSendMessage}
-        className="p-3 border-t border-gray-200"
-      >
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-          <button
-            type="submit"
-            disabled={!newMessage.trim()}
-            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Send className="h-4 w-4" />
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
+// (Legacy ChatPanel removed)
 
 // Collaborators panel component
 function CollaboratorsPanel() {
@@ -205,7 +108,17 @@ function EditorContent({
   documentId: number;
   initialContent: string;
 }) {
-  const [content, setContent] = useState(initialContent);
+  // Shared document content via Liveblocks storage
+  const content = useStorage(
+    (root) => (root as any).get?.("content") as string | undefined
+  );
+  const setContentInStorage = useMutation(({ storage }, newValue: string) => {
+    storage.set("content", newValue);
+  }, []);
+
+  // Local mirror for textarea controlled input to avoid uncontrolled flickers
+  const [localContent, setLocalContent] = useState(initialContent);
+  const [storageReady, setStorageReady] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -217,22 +130,28 @@ function EditorContent({
   const handleContentChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newContent = e.target.value;
-      setContent(newContent);
+      setLocalContent(newContent);
+      if (storageReady) {
+        setContentInStorage(newContent);
+      }
 
-      // Update presence to show user is typing
-      updateMyPresence({
-        cursor: { x: 0, y: 0 },
-        isTyping: true,
-      });
-
-      // Clear typing status after a delay
-      setTimeout(() => {
-        updateMyPresence({
-          isTyping: false,
-        });
-      }, 1000);
+      // Update presence with precise caret
+      const textarea = textareaRef.current;
+      if (textarea) {
+        const { x, y } = computeCaretCoordinates(
+          textarea,
+          textarea.selectionStart || 0
+        );
+        updateMyPresence({ cursor: { x, y }, isTyping: true });
+        window.setTimeout(() => {
+          updateMyPresence({ isTyping: false });
+        }, 1000);
+      } else {
+        updateMyPresence({ isTyping: true });
+        window.setTimeout(() => updateMyPresence({ isTyping: false }), 1000);
+      }
     },
-    [updateMyPresence]
+    [storageReady, setContentInStorage, updateMyPresence]
   );
 
   // Handle cursor movement and selection
@@ -249,6 +168,63 @@ function EditorContent({
     [updateMyPresence]
   );
 
+  // Compute exact caret coordinates inside a textarea
+  const computeCaretCoordinates = (
+    textarea: HTMLTextAreaElement,
+    selectionIndex: number
+  ) => {
+    const div = document.createElement("div");
+    const style = getComputedStyle(textarea);
+    // Mirror textarea styles that affect layout
+    const properties = [
+      "boxSizing",
+      "width",
+      "height",
+      "overflowX",
+      "overflowY",
+      "borderTopWidth",
+      "borderRightWidth",
+      "borderBottomWidth",
+      "borderLeftWidth",
+      "paddingTop",
+      "paddingRight",
+      "paddingBottom",
+      "paddingLeft",
+      "fontStyle",
+      "fontVariant",
+      "fontWeight",
+      "fontStretch",
+      "fontSize",
+      "fontFamily",
+      "lineHeight",
+      "letterSpacing",
+      "textTransform",
+      "textAlign",
+      "textIndent",
+      "whiteSpace",
+    ];
+    properties.forEach((prop) => {
+      (div.style as any)[prop] = (style as any)[prop];
+    });
+    div.style.position = "absolute";
+    div.style.visibility = "hidden";
+    div.style.whiteSpace = "pre-wrap";
+    div.style.wordWrap = "break-word";
+    // Split content into before caret and after caret
+    const value = textarea.value.substring(0, selectionIndex);
+    const span = document.createElement("span");
+    span.textContent = textarea.value.substring(selectionIndex) || "."; // placeholder to get box
+    div.textContent = value;
+    div.appendChild(span);
+    document.body.appendChild(div);
+    const rect = span.getBoundingClientRect();
+    const base = textarea.getBoundingClientRect();
+    const x = rect.left - base.left;
+    const y = rect.top - base.top;
+    document.body.removeChild(div);
+    return { x, y };
+  };
+
   const handleSelectionChange = useCallback(
     (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
       const textarea = e.currentTarget;
@@ -262,9 +238,8 @@ function EditorContent({
         });
       } else {
         // User has a cursor position
-        updateMyPresence({
-          cursor: { x: 0, y: 0 }, // Will be updated by mouse move
-        });
+        const { x, y } = computeCaretCoordinates(textarea, start);
+        updateMyPresence({ cursor: { x, y } });
       }
     },
     [updateMyPresence]
@@ -286,15 +261,47 @@ function EditorContent({
   );
 
   // Debounced save
+  // Keep localContent in sync with shared storage when others edit
+  useEffect(() => {
+    if (typeof content === "string") {
+      setLocalContent(content);
+    }
+  }, [content]);
+
+  // Debounced autosave based on shared content
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (content !== initialContent) {
+      if (storageReady && typeof content === "string") {
         saveDocument(content);
       }
     }, 1000);
-
     return () => clearTimeout(timeoutId);
-  }, [content, initialContent, saveDocument]);
+  }, [content, saveDocument, storageReady]);
+
+  // Initialize storage once loaded
+  const room = useRoom();
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { root } = await room.getStorage();
+        if (!alive) return;
+        if (!(root as any).get("content")) {
+          (root as any).set("content", initialContent);
+        }
+        if (!(root as any).get("messages")) {
+          (root as any).set("messages", []);
+        }
+        setStorageReady(true);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error("Storage init failed", err);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [room, initialContent]);
 
   // Set initial presence
   useEffect(() => {
@@ -338,10 +345,12 @@ function EditorContent({
         <div className="relative">
           <textarea
             ref={textareaRef}
-            value={content}
+            value={localContent}
             onChange={handleContentChange}
             onMouseMove={handleCursorMove}
             onSelect={handleSelectionChange}
+            onKeyUp={handleSelectionChange}
+            onClick={handleSelectionChange}
             onFocus={handleSelectionChange}
             placeholder="Start writing your document..."
             className="w-full h-96 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none font-mono text-sm leading-relaxed"
@@ -402,9 +411,13 @@ function EditorContent({
 
         {/* Document stats */}
         <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>{content.length} characters</span>
+          <span>{(localContent || "").length} characters</span>
           <span>
-            {content.split(/\s+/).filter((word) => word.length > 0).length}{" "}
+            {
+              (localContent || "")
+                .split(/\s+/)
+                .filter((word) => word.length > 0).length
+            }{" "}
             words
           </span>
         </div>

@@ -6,6 +6,7 @@ import { CollaborativeEditor } from "../components/CollaborativeEditor";
 import { Header } from "../components/Header";
 import { CollaborationDemo } from "../components/CollaborationDemo";
 import { ArrowLeft, FileText, HelpCircle } from "lucide-react";
+import { capitalize } from "../utils/capitalize";
 
 export function DocumentPage() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +29,9 @@ export function DocumentPage() {
         setLoading(true);
         setError(null);
         const doc = await apiService.getDocument(parseInt(id));
+
+        console.log(doc, "---------------------------");
+
         setDocument(doc);
       } catch (err) {
         console.error("Failed to fetch document:", err);
@@ -99,6 +103,21 @@ export function DocumentPage() {
             <ArrowLeft className="h-4 w-4" />
             Back to Documents
           </button>
+          <div className="flex justify-center align-center">
+            <span className="font-bold text-blue-800">
+              {document.title} &nbsp;
+            </span>
+            <div
+              className={`inline-block  w-3 h-3 rounded-full border-2 border-white ${
+                document.IsOnlineUserWhoCreatedTheDocument
+                  ? "bg-green-500"
+                  : "bg-gray-400"
+              }`}
+            />
+            <span className="text-orange-400">
+              {capitalize(document.createdByUsername)}
+            </span>
+          </div>
 
           <button
             onClick={() => setShowDemo(true)}
@@ -108,26 +127,24 @@ export function DocumentPage() {
             How to Collaborate
           </button>
         </div>
+        <div className="p-6">
+          <CollaborativeEditor
+            documentId={document.id}
+            initialContent={document.content}
+            documentTitle={document.title}
+          />
+        </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <h1 className="text-2xl font-bold text-gray-900">
               {document.title}
             </h1>
             <p className="text-gray-600 text-sm mt-1">
-              Created by{" "}
-              {document.createdByUsername || document.created_by_username}
+              Created by {document.createdByUsername}
             </p>
           </div>
-
-          <div className="p-6">
-            <CollaborativeEditor
-              documentId={document.id}
-              initialContent={document.content}
-              documentTitle={document.title}
-            />
-          </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Collaboration Demo Modal */}

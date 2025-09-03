@@ -18,7 +18,7 @@ export class DatabaseManager {
   }
 
   async initialize() {
-    // You can run migrations here or via drizzle-kit CLI
+    // Can be run migrations here or via drizzle-kit CLI
     await this.pool.connect().then((c) => c.release());
     console.log("✅ Postgres connected");
   }
@@ -51,6 +51,15 @@ export class DatabaseManager {
       .limit(1);
 
     return rows[0];
+  }
+
+  async getUserById(userId: number) {
+    const userRows = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    return userRows[0];
   }
 
   async getUserByUsername(username: string) {

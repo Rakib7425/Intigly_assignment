@@ -7,10 +7,14 @@ import { BrowserRouter } from "react-router-dom";
 
 import { LiveblocksProvider } from "@liveblocks/react";
 
+// Be tolerant to type environments without Vite's ImportMeta typing
+const BACKEND_URL =
+  (import.meta as any).env?.VITE_APP_BACKEND_URL || "http://localhost:3001";
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <LiveblocksProvider
-      publicApiKey={import.meta.env.VITE_LIVEBLOCKS_PUBLIC_KEY! || ""}
+      authEndpoint={`${BACKEND_URL}/api/liveblocks/authorize`}
     >
       <BrowserRouter>
         <App />

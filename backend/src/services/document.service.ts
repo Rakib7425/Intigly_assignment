@@ -25,8 +25,19 @@ export const getDocumentById = async (id: number) => {
       return null;
     }
 
-    logMessage("Fetched document:", id);
-    return doc;
+    // find who created the document and return online status
+    const userWhoCreatedTheDocument = await dbManager.getUserById(
+      Number(doc.createdBy)
+    );
+
+    const returnableData = {
+      ...doc,
+      IsOnlineUserWhoCreatedTheDocument:
+        !!userWhoCreatedTheDocument.isOnline || false,
+    };
+
+    // logMessage("Fetched document:", id);
+    return returnableData;
   } catch (error) {
     logError("Error fetching document:", error);
     throw error;

@@ -12,6 +12,7 @@ export interface Document {
   created_by_username: string;
   createdBy: string;
   createdByUsername: string;
+  IsOnlineUserWhoCreatedTheDocument?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
